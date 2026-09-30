@@ -2,19 +2,11 @@ name: Auto Reading Bot
 
 on:
   # 定时触发 - Fork 后如需自动定时运行，请取消下方 schedule 注释
+  # 时间均为 UTC，北京时间 = UTC + 8
   schedule:
     - cron: '0 0 * * *'    # UTC 00:00 = 北京时间 08:00
     - cron: '0 12 * * *'   # UTC 12:00 = 北京时间 20:00
 
-  # 拉取请求触发，用于测试阅读
-  pull_request:
-    branches: [ main ]
-    paths:
-      - 'weread-bot.py'
-      - 'requirements.txt'
-      - '.github/workflows/auto-reading.yml'
-      - '.github/workflows/ci.yml'
-  
   # 拉取请求触发，用于测试阅读
   pull_request:
     branches: [ main ]
@@ -66,7 +58,7 @@ jobs:
   auto-reading:
     runs-on: ubuntu-latest
     timeout-minutes: 120  # 2小时超时
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -104,31 +96,40 @@ jobs:
         app:
           name: "WeReadBot-GitHub-Action"
           startup_mode: "immediate"
-          startup_delay: "1-2"
+          # 启动随机延迟（秒），区间随机，防人机检测关键项；避免整点秒触发
+          startup_delay: "60-300"
 
         reading:
           mode: "${{ github.event.inputs.reading_mode || 'smart_random' }}"
-          # 目标阅读时长（分钟），支持区间随机，格式如："1" 或 "1-2"
+          # 目标阅读时长（分钟），支持区间随机；官方建议 45-90，过长不符合人类阅读习惯
           target_duration: "${TARGET_DURATION}"
+          # 每次阅读请求间隔（秒），模拟真实翻页节奏
           reading_interval: "30-48"
           use_curl_data_first: true
           fallback_to_config: true
+          # 连续失败上限，避免异常刷请求
+          max_consecutive_failures: 5
           smart_random:
             book_continuity: 0.8
             chapter_continuity: 0.7
             book_switch_cooldown: 3600
 
+        # 人类行为模拟：开启后更接近真实用户行为，降低被判定为机器人的风险
         human_simulation:
-          enabled: false
+          enabled: true
           reading_speed_variation: true
+          # 中途休息概率（0-1）
           break_probability: 0.15
-          break_duration: "10-20"
+          # 休息时长（秒），区间随机
+          break_duration: "30-180"
+          # User-Agent 轮换（会话级）。建议保持 false，使用 curl 自带 UA 更自然
           rotate_user_agent: false
 
         network:
           timeout: 30
           retry_times: 3
           retry_delay: "5-15"
+          # 请求频率控制（请求/分钟），被速率限制器严格执行
           rate_limit: 10
 
         notification:
@@ -162,13 +163,13 @@ jobs:
 
     - name: Run WeRead Bot
       env:
-        # Cookie刷新QL属性，根据不同用户的环境，可能需要设置为True或False来确保cookie刷新正常工作，默认值为false
+        # Cookie刷新QL属性，根据环境可能需要设为 True 或 False，默认 false
         HACK_COOKIE_REFRESH_QL: ${{ secrets.HACK_COOKIE_REFRESH_QL }}
-        # 多用户 cURL：在 WEREAD_CURL_STRING 中放置多段 curl，段与段之间至少插入两个空行
+        # 多用户 cURL：在 WEREAD_CURL_STRING 中放多段 curl，段与段之间至少两个空行
         WEREAD_CURL_STRING: ${{ secrets.WEREAD_CURL_STRING }}
         # 多用户并发控制，未设置默认 1（顺序执行）
         MAX_CONCURRENT_USERS: ${{ secrets.MAX_CONCURRENT_USERS || 1 }}
-        # 单用户连续阅读失败上限，未设置时默认 5
+        # 单用户连续阅读失败上限，未设置默认 5
         MAX_CONSECUTIVE_FAILURES: ${{ secrets.MAX_CONSECUTIVE_FAILURES || 5 }}
         # 通知相关环境变量
         PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
@@ -219,7 +220,7 @@ jobs:
         echo "- 历史持久化: ${{ github.event.inputs.history_enabled != 'false' }}"
         echo "- 历史保留条数: ${{ github.event.inputs.history_max_entries || '50' }}"
         echo "================================"
-        
+
         # 运行阅读机器人
         python weread-bot.py --config config.yaml
 
