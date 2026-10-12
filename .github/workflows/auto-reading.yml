@@ -120,7 +120,7 @@ jobs:
           # 中途休息概率（0-1）
           break_probability: 0.15
           # 休息时长（秒），区间随机
-          break_duration: "30-120"
+          break_duration: "15-25"
           # User-Agent 轮换（会话级）。建议保持 false，使用 curl 自带 UA 更自然
           rotate_user_agent: false
 
