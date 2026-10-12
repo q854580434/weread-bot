@@ -26,7 +26,7 @@ on:
       reading_mode:
         description: '阅读模式'
         required: false
-        default: 'smart_random'
+        default: 'sequential'
         type: choice
         options:
         - smart_random
@@ -96,7 +96,7 @@ jobs:
           name: "WeReadBot-GitHub-Action"
           startup_mode: "immediate"
           # 启动随机延迟（秒），区间随机，防人机检测关键项；避免整点秒触发
-          startup_delay: "60-300"
+          startup_delay: "60-120"
 
         reading:
           mode: "${{ github.event.inputs.reading_mode || 'smart_random' }}"
@@ -120,7 +120,7 @@ jobs:
           # 中途休息概率（0-1）
           break_probability: 0.15
           # 休息时长（秒），区间随机
-          break_duration: "30-180"
+          break_duration: "30-120"
           # User-Agent 轮换（会话级）。建议保持 false，使用 curl 自带 UA 更自然
           rotate_user_agent: false
 
